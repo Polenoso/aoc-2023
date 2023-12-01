@@ -49,9 +49,7 @@ fun main() {
     }
 
     fun part2(input: List<String>): Int {
-        return input
-            .map { parseToNumber(it).toInt() }
-            .sum()
+        return input.sumOf { parseToNumber(it).toInt() }
     }
 
     // test if implementation meets criteria from the description, like:
