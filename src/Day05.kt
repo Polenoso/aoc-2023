@@ -63,7 +63,6 @@ class Almanac(input: List<String>) {
 
     fun findMinLocation(): Long {
         val category = categories.first { it.id == "seed" }
-        val locationCategory = categories.first { it.destination == "location" }
         val locations = seeds.map {
             var seedCat = category
             var value = seedCat.valueForInput(it)
@@ -75,22 +74,42 @@ class Almanac(input: List<String>) {
         }
         return  locations.min()
     }
+
+    fun findMinLocationUsingRanges(): Long {
+        val seedRanges = seeds.windowed(2,2).map { it.first() ..< it.first()+it.last() }
+        val category = categories.first { it.id == "seed" }
+        var minValue = Long.MAX_VALUE
+        for (range in seedRanges) {
+            var currentSeed = range.first
+            while (currentSeed <= range.last) {
+                var seedCat = category
+                var value = seedCat.valueForInput(currentSeed)
+                while (seedCat.destination != "location") {
+                    seedCat = seedCat.associatedCategory(categories)
+                    value = seedCat.valueForInput(value)
+                }
+                if (value < minValue) minValue = value
+                currentSeed += range.step
+            }
+        }
+        return minValue
+    }
 }
 fun main() {
     fun part1(input: List<String>): Long {
         return Almanac(input).findMinLocation()
     }
 
-    fun part2(input: List<String>): Int {
-        return input.size
+    fun part2(input: List<String>): Long {
+        return Almanac(input).findMinLocationUsingRanges()
     }
 
     // test if implementation meets criteria from the description, like:
     val testInput = readInput("Day05_tests")
     //part1(testInput).println()
     // part2(testInput).println()
-     check(part1(testInput) == 35.toLong())
-    // check(part2(testInput) == 30)
+    check(part1(testInput) == 35.toLong())
+    check(part2(testInput) == 46.toLong())
 
     val input = readInput("Day05")
     part1(input).println()
@@ -192,5 +211,21 @@ Seed 13, soil 13, fertilizer 52, water 41, light 34, temperature 34, humidity 35
 So, the lowest location number in this example is 35.
 
 What is the lowest location number that corresponds to any of the initial seed numbers?
+
+--- Part Two ---
+Everyone will starve if you only plant such a small number of seeds. Re-reading the almanac, it looks like the seeds: line actually describes ranges of seed numbers.
+
+The values on the initial seeds: line come in pairs. Within each pair, the first value is the start of the range and the second value is the length of the range. So, in the first line of the example above:
+
+seeds: 79 14 55 13
+This line describes two ranges of seed numbers to be planted in the garden. The first range starts with seed number 79 and contains 14 values: 79, 80, ..., 91, 92. The second range starts with seed number 55 and contains 13 values: 55, 56, ..., 66, 67.
+
+Now, rather than considering four seed numbers, you need to consider a total of 27 seed numbers.
+
+In the above example, the lowest location number can be obtained from seed number 82, which corresponds to soil 84, fertilizer 84, water 84, light 77, temperature 45, humidity 46, and location 46. So, the lowest location number is 46.
+
+Consider all of the initial seed numbers listed in the ranges on the first line of the almanac. What is the lowest location number that corresponds to any of the initial seed numbers?
+
+
 
 * */
