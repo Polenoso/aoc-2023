@@ -1,5 +1,8 @@
-data class Card(val symbol: Char): Comparable<Card> {
-    val weight: Int = mapOf(
+interface CardPlay {
+    val weight: Int
+}
+data class Card(val symbol: Char): CardPlay, Comparable<Card> {
+    override val weight: Int = mapOf(
         '2' to 2,
         '3' to 3,
         '4' to 4,
@@ -20,9 +23,31 @@ data class Card(val symbol: Char): Comparable<Card> {
     }
 }
 
-data class Play(val cards: List<Card>, val bid: Int) {
+data class CardWithJoker(val symbol: Char): CardPlay, Comparable<CardWithJoker> {
+    override val weight: Int = mapOf(
+        'J' to 1,
+        '2' to 2,
+        '3' to 3,
+        '4' to 4,
+        '5' to 5,
+        '6' to 6,
+        '7' to 7,
+        '8' to 8,
+        '9' to 9,
+        'T' to 10,
+        'Q' to 12,
+        'K' to 13,
+        'A' to 14
+    )[symbol]!!
+
+    override fun compareTo(other: CardWithJoker): Int {
+        return weight.compareTo(other.weight)
+    }
+}
+
+data class Play(val cards: List<CardPlay>, val bid: Int) {
     enum class PlayType {
-        FIVE, FOUR, FULL, THREE, TWO, ONE, HIGH
+        HIGH, ONE, TWO, THREE, FULL, FOUR, FIVE
     }
 
     val playType: PlayType
@@ -45,6 +70,32 @@ data class Play(val cards: List<Card>, val bid: Int) {
                 PlayType.HIGH
             }
         }
+
+    val playJokerType: PlayType
+        get() {
+            if (!cards.contains(CardWithJoker('J'))) {
+                return playType
+            }
+            if (cards.all { it.weight == 1 }) {
+                return playType
+            }
+
+            return findHigherPlayType()
+        }
+
+    private fun findHigherPlayType(): PlayType {
+        val cardsToChange = cards.filter { it.weight != 1 }.toSet()
+        val possiblePlays = cardsToChange.map { cardToChange ->
+            val newCards = cards.map { if (it.weight == 1) {
+                    cardToChange
+                } else {
+                    it
+                }
+            }
+            Play(newCards, bid)
+        }
+        return possiblePlays.maxOf { it.playType }
+    }
 }
 
 fun main() {
@@ -60,30 +111,48 @@ fun main() {
                     var value = 0
                     var index = 0
                     while (index < play1.cards.count() && value == 0) {
-                        value = play2.cards[index].compareTo(play1.cards[index])
+                        value = play1.cards[index].weight.compareTo(play2.cards[index].weight)
                         index ++
                     }
                     return@sortedWith value
                 }
                 play1.playType.compareTo(play2.playType)
             }
-            .reversed()
             .foldIndexed(0) {index, acc, play ->
                 acc + ((index + 1) * play.bid)
             }
     }
 
     fun part2(input: List<String>): Int {
-        return input.size
+        return input.map {
+            val play = it.split(" ").first().map { CardWithJoker(it) }
+            val bid = it.split(" ").last().toInt()
+            val coco = Play(play, bid)
+            coco
+        }
+            .sortedWith { play1, play2 ->
+                if (play1.playJokerType == play2.playJokerType) {
+                    var value = 0
+                    var index = 0
+                    while (index < play1.cards.count() && value == 0) {
+                        value = play1.cards[index].weight.compareTo(play2.cards[index].weight)
+                        index ++
+                    }
+                    return@sortedWith value
+                }
+                play1.playJokerType.compareTo(play2.playJokerType)
+            }
+            .foldIndexed(0) {index, acc, play ->
+                acc + ((index + 1) * play.bid)
+            }
     }
 
     // test if implementation meets criteria from the description, like:
     val testInput = readInput("Day07_tests")
     part1(testInput).println()
     check(part1(testInput) == 6440)
-//    part2(testInput).println()
-//    check(parseToNumber("twone") == "21")
-//    parseToNumber("4nineeightseven2").println()
+    part2(testInput).println()
+    check(part2(testInput) == 5905)
 
     val input = readInput("Day07")
     part1(input).println()
@@ -142,4 +211,25 @@ T55J5 and QQQJA are both three of a kind. QQQJA has a stronger first card, so it
 Now, you can determine the total winnings of this set of hands by adding up the result of multiplying each hand's bid with its rank (765 * 1 + 220 * 2 + 28 * 3 + 684 * 4 + 483 * 5). So the total winnings in this example are 6440.
 
 Find the rank of every hand in your set. What are the total winnings?
+
+--- Part Two ---
+To make things a little more interesting, the Elf introduces one additional rule. Now, J cards are jokers - wildcards that can act like whatever card would make the hand the strongest type possible.
+
+To balance this, J cards are now the weakest individual cards, weaker even than 2. The other cards stay in the same order: A, K, Q, T, 9, 8, 7, 6, 5, 4, 3, 2, J.
+
+J cards can pretend to be whatever card is best for the purpose of determining hand type; for example, QJJQ2 is now considered four of a kind. However, for the purpose of breaking ties between two hands of the same type, J is always treated as J, not the card it's pretending to be: JKKK2 is weaker than QQQQ2 because J is weaker than Q.
+
+Now, the above example goes very differently:
+
+32T3K 765
+T55J5 684
+KK677 28
+KTJJT 220
+QQQJA 483
+32T3K is still the only one pair; it doesn't contain any jokers, so its strength doesn't increase.
+KK677 is now the only two pair, making it the second-weakest hand.
+T55J5, KTJJT, and QQQJA are now all four of a kind! T55J5 gets rank 3, QQQJA gets rank 4, and KTJJT gets rank 5.
+With the new joker rule, the total winnings in this example are 5905.
+
+Using the new joker rule, find the rank of every hand in your set. What are the new total winnings?
 * */
