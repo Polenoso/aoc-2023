@@ -1,11 +1,11 @@
 import kotlin.math.abs
-data class Galaxy(val x: Int, val y: Int) {
-    fun findShortPath(toGalaxy: Galaxy): Int {
+data class Galaxy(val x: Long, val y: Long) {
+    fun findShortPath(toGalaxy: Galaxy): Long {
         return abs(toGalaxy.x - x) + abs(toGalaxy.y - y)
     }
 }
 fun main() {
-    fun part1(input: List<String>): Int {
+    fun part1(input: List<String>): Long {
         val emptyRows = emptySet<Int>().toMutableSet()
         val filledColumns = emptySet<Int>().toMutableSet()
         val galaxies = emptySet<Galaxy>().toMutableSet()
@@ -39,27 +39,83 @@ fun main() {
         expandedSpace.forEachIndexed { row, s ->
             s.forEachIndexed { column, c ->
                 if (c == '#') {
-                    galaxies.add(Galaxy(row, column))
+                    galaxies.add(Galaxy(row.toLong(), column.toLong()))
                 }
             }
         }
         val gal = galaxies.toList()
-        var sum = 0
+        var sum: Long = 0
         for (i in 0..<gal.count()) {
             for (j in i+1 ..< gal.count()) {
                 sum += gal[i].findShortPath(gal[j])
             }
         }
+
+        return sum
+    }
+    fun findGalaxies(input: List<String>): List<Galaxy> {
+        val galaxies = emptySet<Galaxy>().toMutableSet()
+        input.forEachIndexed { row, s ->
+            s.forEachIndexed { column, c ->
+                if (c == '#') {
+                    galaxies.add(Galaxy(row.toLong(), column.toLong()))
+                }
+            }
+        }
+        return galaxies.toList()
+    }
+
+    fun part2(input: List<String>): Long {
+        val galaxies = findGalaxies(input)
+        val emptyRows = emptySet<Int>().toMutableSet()
+        val filledColumns = emptySet<Int>().toMutableSet()
+        input.forEachIndexed {rowIndex, row ->
+            var isRowEmpty = true
+            row.forEachIndexed { columnIndex, column ->
+                if (isRowEmpty && column != '.') {
+                    isRowEmpty = false
+                }
+                if (column == '#') {
+                    filledColumns.add(columnIndex)
+                }
+            }
+            if (isRowEmpty) emptyRows.add(rowIndex)
+        }
+        val emptyColumns = (0..<input.first().count()).filter { !filledColumns.contains(it) }.toList()
+        val factor = 999999L
+        // Expand Factor
+        val gal = galaxies.map {
+            var x = it.x
+            var y = it.y
+            val numberOfER = emptyRows.count { ro -> ro <= x }
+            val numberOfEC = emptyColumns.count { co -> co <= y }
+            if (numberOfER > 0) {
+                x += ((factor) * numberOfER)
+            }
+            if (numberOfEC > 0) {
+                y += ((factor) * numberOfEC)
+            }
+            Galaxy(x, y)
+        }
+        var sum: Long = 0
+        for (i in 0..<gal.count()) {
+            for (j in i+1 ..< gal.count()) {
+                sum += gal[i].findShortPath(gal[j])
+            }
+        }
+
         return sum
     }
 
     // Tests
     val testInput = readInput("Day11_tests")
     part1(testInput).println()
-    check(part1(testInput) == 374)
+    check(part1(testInput) == 374.toLong())
+    part2(testInput).println()
 
     val input = readInput("Day11")
     part1(input).println()
+    part2(input).println()
 
 }
 
