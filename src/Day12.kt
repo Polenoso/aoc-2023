@@ -11,6 +11,13 @@ fun validCombination(input: String): Boolean {
     }
 }
 
+fun unfold(input: String): String {
+    val split = input.split(" ")
+    val firstPart = Array(5) { split.first() }.joinToString("?")
+    val secondPart = Array(5) { split.last() }.joinToString(",")
+    return "$firstPart $secondPart"
+}
+
 fun countValidCombinations(input: String): Long {
     val unknownIndexes = emptyList<Int>().toMutableList()
     input.forEachIndexed { index, c ->
@@ -26,13 +33,49 @@ fun countValidCombinations(input: String): Long {
     val newInput2 = input.replaceRange(range, range+1, ".")
     return countValidCombinations(newInput) + countValidCombinations(newInput2)
 }
+var memo = HashMap<Pair<String, List<Int>>, Long>().toMutableMap()
+fun count(records: String, input: List<Int>): Long {
+    var sum = 0L
+    if (records.isEmpty()) {
+        return if (input.isEmpty()) 1 else 0
+    }
+    if (input.isEmpty()) {
+        return if (records.contains('#')) 0 else 1
+    }
+
+    val memorized = memo[Pair(records, input)]
+    if (memorized != null) {
+        return memorized
+    }
+    if (".?".contains(records[0])) {
+        sum += count(records.substring(1), input)
+    }
+
+    if ("#?".contains(records[0])) {
+        if (input[0] <= records.length
+            && !records.substring(0, input[0]).contains('.')
+            && (
+                    input[0] == records.length
+                            || records[input[0]] != '#'
+                    )) {
+            sum += count(records.drop(input[0]+1), input.drop(1))
+        }
+    }
+    memo[Pair(records, input)] = sum
+    return sum
+}
+fun countValidCombinations2(input: String): Long {
+    val inputs = input.split(" ").last().split(",").map { it.toInt() }
+    val records = input.split(" ").first()
+    return count(records, inputs)
+}
 fun main() {
     fun part1(input: List<String>): Long {
-        return input.sumOf { countValidCombinations(it) }
+        return input.sumOf { countValidCombinations2(it) }
     }
 
     fun part2(input: List<String>): Long {
-        return 0
+        return input.sumOf { countValidCombinations2(unfold(it)) }
     }
 
     // Tests
@@ -41,15 +84,16 @@ fun main() {
 //    val invalidLine = "##..### 1,1,3"
 //    check(!validCombination(invalidLine))
 //    check(part1(listOf(validLine)) == 1L)
-    val validOther = ".#.###.#.###### 1,3,1,6"
-    check(validCombination(validOther))
+//     val validOther = "????.######..#####. 1,6,5"
+//     countValidCombinations2(validOther).println()
     val testInput = readInput("Day12_tests")
-    part1(testInput).println()
+     part1(testInput).println()
 //    check(part1(testInput) == 21L)
+    part2(testInput).println()
 
     val input = readInput("Day12")
     part1(input).println()
-
+    part2(input).println()
 }
 
 /*
