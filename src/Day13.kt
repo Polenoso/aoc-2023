@@ -10,24 +10,26 @@ fun List<String>.transpose(): List<String> {
     return transpose
 }
 
-fun List<String>.mirrorIndex(): Long? {
-    val mirrorPositions = emptyList<Int>().toMutableList()
-    for (i in indices) {
-        if (i == lastIndex) continue
-        if (get(i) == get(i + 1)) mirrorPositions.add(i+1)
+fun String.diff(other: String): Int {
+    return zip(other).count { it.first != it.second }
+}
+
+fun List<String>.mirrorIndex(minSmudges: Int): Long? {
+    val mirrorPositions = zipWithNext { a, b ->
+        a.diff(b)
     }
+        .mapIndexedNotNull { index, i ->
+            if (i <= minSmudges) index+1 else null
+        }
     for (indexPosition in mirrorPositions) {
         val steps = kotlin.math.min(indexPosition, size - (indexPosition))
-        var valid = true
+        var differencesFound = 0
         for (i in 0 until steps) {
             val left = get(indexPosition + i)
             val right = get(indexPosition - i - 1)
-            if (left != right) {
-                valid = false
-                break
-            }
+            differencesFound += left.diff(right)
         }
-        if (valid) return indexPosition.toLong()
+        if (differencesFound == minSmudges) return indexPosition.toLong()
     }
     return null
 }
@@ -37,24 +39,29 @@ fun main() {
         val patterns: List<List<String>> = input.joinToString("\n").split("\n\n").map { it.split("\n") }
         var sum = 0L
         patterns.forEach { pattern ->
-            sum += pattern.mirrorIndex()?.times(100) ?: pattern.transpose().mirrorIndex()?: 0
+            sum += pattern.mirrorIndex(0)?.times(100) ?: pattern.transpose().mirrorIndex(0)?: 0
         }
         return sum
     }
 
     fun part2(input: List<String>): Long {
-        return input.size.toLong()
+        val patterns: List<List<String>> = input.joinToString("\n").split("\n\n").map { it.split("\n") }
+        var sum = 0L
+        patterns.forEach { pattern ->
+            sum += pattern.mirrorIndex(1)?.times(100) ?: pattern.transpose().mirrorIndex(1)?: 0
+        }
+        return sum
     }
 
     // Tests
     val testInput = readInput("Day13_tests")
-     part1(testInput).println()
-     check(part1(testInput) == 405L)
-    // part2(testInput).println()
+     //part1(testInput).println()
+     //check(part1(testInput) == 405L)
+     part2(testInput).println()
 
     val input = readInput("Day13")
     part1(input).println()
-    //part2(input).println()
+    part2(input).println()
 }
 
 /*
