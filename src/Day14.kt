@@ -9,52 +9,148 @@ data class Coordinate2D(var x: Int, var y: Int): Point2D() {
         this.y = y.toInt()
     }
 }
+typealias MapSize = Pair<Int, Int>
+data class RockMap(val size: MapSize, var rocks: List<Rock>) {
+    private fun applyTilt(reversed: Boolean = false, obstacleFinder: ObstacleFinder, minPosition: MinLocationSetter, setLocation: LocationSetter) {
+        if (reversed) {
+            for (i in size.first downTo 0) {
+                for (j in size.second downTo 0) {
+                    val rock = rocks.firstOrNull { it.position == Coordinate2D(i, j) && it.canMove }
+                    if (rock == null) {
+                        continue
+                    }
+                    val firstObstacle = obstacleFinder(rocks, rock)
+                    if (rock.canMove && firstObstacle != null && rock.position != firstObstacle.position) {
+                        rock.position.setLocation(setLocation(rock, firstObstacle))
+                    } else if (rock.canMove) {
+                        rock.position.setLocation(minPosition(rock, size))
+                    }
+                }
+            }
+            return
+        }
+        for (i in 0 until size.first) {
+            for (j in 0 until size.second) {
+                val rock = rocks.firstOrNull { it.position == Coordinate2D(i, j) && it.canMove }
+                if (rock == null) {
+                    continue
+                }
+                val firstObstacle = obstacleFinder(rocks, rock)
+                if (rock.canMove && firstObstacle != null && rock.position != firstObstacle.position) {
+                    rock.position.setLocation(setLocation(rock, firstObstacle))
+                } else if (rock.canMove) {
+                    rock.position.setLocation(minPosition(rock, size))
+                }
+            }
+        }
+    }
 
+    fun tiltNorth() {
+        applyTilt(false, northObstacle, northMinPosition, northSetLocation)
+    }
+
+    private fun tiltSouth() {
+        applyTilt(true, southObstacle, southMinPosition, southSetLocation)
+    }
+
+    private fun tiltEast() {
+        applyTilt(true, eastObstacle, eastMinPosition, eastSetLocation)
+    }
+
+    private fun tiltWest() {
+        applyTilt(false, westObstacle, westMinPosition, westSetLocation)
+    }
+
+    fun spin(times: Long) {
+        var count = 0L
+        val mapCopy = emptyList<String>().toMutableList()
+        while (count <= times) {
+            tiltNorth()
+            tiltWest()
+            tiltSouth()
+            tiltEast()
+            val output = printMap()
+            if (mapCopy.contains(output)) { count.println(); break } else mapCopy.add(output)
+            count++
+        }
+        if (count < times) {
+            for (i in 0 .. count) {
+                tiltNorth()
+                tiltWest()
+                tiltSouth()
+                tiltEast()
+            }
+        }
+    }
+
+    val northSupportBeams: Long by lazy { rocks.filter { it.canMove }.sumOf { size.first - it.position.x }.toLong() }
+
+    fun printMap(): String {
+        var output = ""
+        for (i in 0 until size.first) {
+            for (j in 0 until size.second) {
+                val rock = rocks.firstOrNull { it.position.x.toInt() == i && it.position.y.toInt()  == j }
+                output += if (rock != null) rock.value else '.'
+            }
+            output += "\n"
+        }
+        return output
+    }
+}
 data class Rock(val value: Char, var position: Point2D) {
     val sand: Boolean = value == '.'
     val canMove: Boolean = value == 'O'
 }
+typealias ObstacleFinder = (rocks: List<Rock>, rock: Rock) -> Rock?
+var northObstacle: ObstacleFinder = { rocks, rock -> rocks.filter { it.position.y == rock.position.y && it.position.x < rock.position.x }.maxByOrNull { it.position.x } }
+var southObstacle: ObstacleFinder = { rocks, rock -> rocks.filter { it.position.y == rock.position.y && it.position.x > rock.position.x }.minByOrNull { it.position.x } }
+var eastObstacle: ObstacleFinder = { rocks, rock -> rocks.filter { it.position.x == rock.position.x && it.position.y > rock.position.y }.minByOrNull { it.position.y } }
+var westObstacle: ObstacleFinder = { rocks, rock -> rocks.filter { it.position.x == rock.position.x && it.position.y < rock.position.y }.maxByOrNull { it.position.y } }
+
+typealias MinLocationSetter = (rock: Rock, size: MapSize) -> Coordinate2D
+var northMinPosition: MinLocationSetter = { rock, _ -> Coordinate2D(0, rock.position.y.toInt()) }
+var southMinPosition: MinLocationSetter = { rock, size -> Coordinate2D(size.first - 1, rock.position.y.toInt()) }
+var eastMinPosition: MinLocationSetter = { rock, size -> Coordinate2D(rock.position.x.toInt(), size.second - 1) }
+var westMinPosition: MinLocationSetter = { rock, _ -> Coordinate2D(rock.position.x.toInt(), 0) }
+
+typealias LocationSetter = (rock: Rock, obstacle: Rock) -> Coordinate2D
+var northSetLocation: LocationSetter = { rock, obstacle -> Coordinate2D(obstacle.position.x.toInt() + 1, rock.position.y.toInt()) }
+var southSetLocation: LocationSetter = { rock, obstacle -> Coordinate2D(obstacle.position.x.toInt() - 1, rock.position.y.toInt()) }
+var westSetLocation: LocationSetter = { rock, obstacle -> Coordinate2D(rock.position.x.toInt(), obstacle.position.y.toInt() + 1) }
+var eastSetLocation: LocationSetter = { rock, obstacle -> Coordinate2D(rock.position.x.toInt(), obstacle.position.y.toInt() - 1) }
 fun main() {
-    fun part1(input: List<String>): Long {
+    fun rockMap(input: List<String>): RockMap {
         val map = input.mapIndexed { row, s ->
             s.mapIndexed { column, c ->
                 Rock(c, Coordinate2D(row, column))
             }
         }.flatten()
         val rocks = map.filter { !it.sand }.toMutableList()
-        for (rock in rocks) {
-            val current = rock.position.x
-            val firstObstacle = rocks.filter { it.position.y == rock.position.y && it.position.x < current }.maxByOrNull { it.position.x }
-            if (rock.canMove && rock.position != firstObstacle?.position) {
-                rock.position.setLocation(((firstObstacle?.position?.x ?: -1).toDouble()) + 1, rock.position.y)
-            } else if (rock.canMove){
-                rock.position.setLocation(0.0, rock.position.y)
-            }
-        }
-//        for (i in 0 until input.size) {
-//            for (j in 0 until input.first().length) {
-//                val rock = rocks.firstOrNull { it.position.x.toInt() == i && it.position.y.toInt()  == j }
-//                if (rock != null) print(rock.value) else print('.')
-//            }
-//            "".println()
-//        }
-        val numberOfRows = input.size
-        return rocks.filter { it.canMove }.sumOf { numberOfRows - it.position.x }.toLong()
+        return RockMap(Pair(input.size, input.first().length), rocks)
+    }
+
+    fun part1(input: List<String>): Long {
+        val rockMap = rockMap(input)
+        rockMap.tiltNorth()
+        return rockMap.northSupportBeams
     }
 
     fun part2(input: List<String>): Long {
-        return 0
+        val rockMap = rockMap(input)
+        rockMap.spin(1000000000)
+        return rockMap.northSupportBeams
     }
 
     // Tests
     val testInput = readInput("Day14_tests")
-    part1(testInput).println()
+    //part1(testInput).println()
     check(part1(testInput) == 136L)
-     //part2(testInput).println()
+    //part2(testInput).println()
+    check(part2(testInput) == 64L)
 
     val input = readInput("Day14")
     part1(input).println()
-    //part2(input).println()
+    part2(input).println()
 }
 
 /*
