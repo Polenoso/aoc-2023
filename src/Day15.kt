@@ -1,3 +1,6 @@
+data class LensBox(val id: String, val operation: Char, var focalLength: Int) {
+    val remove: Boolean = operation == '-'
+}
 fun hashAlgorithm(input: String) = input.map { it.code }.fold(0) { acc, i -> ((acc + i) * 17).mod(256) }
 fun main() {
     fun part1(input: String): Long {
@@ -6,7 +9,34 @@ fun main() {
     }
 
     fun part2(input: String): Long {
-        return 0
+        return input.split(",").map {
+            val operation = it.first { c -> c == '-' || c == '=' }
+            val values = it.split(operation)
+            val first = values.first()
+            if (operation == '-') {
+                LensBox(first, operation, 0)
+            } else {
+                LensBox(first, operation, values.last().toInt())
+            }
+        }.groupBy { hashAlgorithm(it.id) }.map { box ->
+            val currentLenses = box.value
+            val remainingLenses = emptyList<LensBox>().toMutableList()
+            for (i in currentLenses.indices) {
+                val remainingIds = remainingLenses.map { it.id }
+                val lensToCheck = currentLenses[i]
+                if (lensToCheck.remove) {
+                    remainingLenses.removeIf { it.id == lensToCheck.id }
+                }
+                else if (remainingIds.contains(lensToCheck.id)) {
+                    remainingLenses.first { it.id == lensToCheck.id }.focalLength = lensToCheck.focalLength
+                }
+                else {
+                    remainingLenses.add(lensToCheck)
+                }
+            }
+            remainingLenses to box.key
+        }
+            .sumOf { box -> box.first.foldIndexed(0) { index, acc, i -> acc + ((index + 1)*i.focalLength*(box.second + 1))}.toLong() }
     }
 
     // Tests
@@ -16,12 +46,12 @@ fun main() {
     val testInput = readInputAsString("Day15_tests")
     part1(testInput).println()
     check(part1(testInput) == 1320L)
-    //part2(testInput).println()
-    // check(part2(testInput) == 64L)
+    part2(testInput).println()
+    check(part2(testInput) == 145L)
 
     val input = readInputAsString("Day15")
     part1(input).println()
-    // part2(input).println()
+    part2(input).println()
 }
 
 /*
