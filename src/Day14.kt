@@ -1,14 +1,4 @@
 import java.awt.geom.Point2D
-data class Coordinate2D(var x: Int, var y: Int): Point2D() {
-    override fun getX(): kotlin.Double = x.toDouble()
-
-    override fun getY(): kotlin.Double = y.toDouble()
-
-    override fun setLocation(x: kotlin.Double, y: kotlin.Double) {
-        this.x = x.toInt()
-        this.y = y.toInt()
-    }
-}
 typealias MapSize = Pair<Int, Int>
 data class RockMap(val size: MapSize, var rocks: List<Rock>) {
     private fun applyTilt(reversed: Boolean = false, obstacleFinder: ObstacleFinder, minPosition: MinLocationSetter, setLocation: LocationSetter) {
