@@ -53,107 +53,144 @@ data class Tile(val char: Char, val coordinate2D: Coordinate2D) {
     }
 }
 fun main() {
-    fun part1(input: List<String>): Long {
-        val layout = input.mapIndexed { row, s ->
-            s.mapIndexed { col, c -> Tile(c, Coordinate2D(row, col)) }
-        }
-        var beams = listOf(Pair(Coordinate2D(0, 0), Direction.RIGHT)).toMutableSet()
+    fun findVisitedTiles(layout: List<List<Tile>>, startingAt: Beam): Long {
+        val copyLayout = layout.map { it.map { it.copy() } }
+        var beams = listOf(startingAt).toMutableSet()
         val visited = emptyList<Beam>().toMutableList()
         while (beams.isNotEmpty()) {
             val beam = beams.first()
             beams = beams.drop(1).toMutableSet()
             if (beam in visited) continue
             visited.add(beam)
-            if (beam.first.x < 0 || beam.first.x >= layout.size || beam.first.y < 0 || beam.first.y >= layout.first().size) continue
-            val tile = layout[beam.first.x][beam.first.y]
+            if (beam.first.x < 0 || beam.first.x >= copyLayout.size || beam.first.y < 0 || beam.first.y >= copyLayout.first().size) continue
+            val tile = copyLayout[beam.first.x][beam.first.y]
             val newBeams = tile.nextBeam(beam.second)
             beams.addAll(newBeams)
         }
 
-        return layout.flatten().count { it.visited }.toLong()
+        return copyLayout.flatten().count { it.visited }.toLong()
+    }
+    fun part1(input: List<String>): Long {
+        val layout = input.mapIndexed { row, s ->
+            s.mapIndexed { col, c -> Tile(c, Coordinate2D(row, col)) }
+        }
+        return findVisitedTiles(layout, Pair(Coordinate2D(0, 0), Direction.RIGHT))
     }
 
-    //fun part2(input: List<String>): Long {
-      //  return 0
-    //}
+    fun part2(input: List<String>): Long {
+        val layout = input.mapIndexed { row, s ->
+            s.mapIndexed { col, c -> Tile(c, Coordinate2D(row, col)) }
+        }
+        val topRow = layout.first().indices.map { Pair(Coordinate2D(0, it), Direction.DOWN) }
+        val bottomRow = layout.first().indices.map { Pair(Coordinate2D(layout.lastIndex, it), Direction.UP) }
+        val leftCol = layout.indices.map { Pair(Coordinate2D(it, 0), Direction.RIGHT) }
+        val rightCol = layout.indices.map { Pair(Coordinate2D(it, layout.first().lastIndex), Direction.LEFT) }
+
+        return listOf(topRow, bottomRow, leftCol, rightCol).flatten().maxOfOrNull { findVisitedTiles(layout, it) } ?: 0
+    }
 
     // Tests
     val testInput = readInput("Day16_tests")
     part1(testInput).println()
     check(part1(testInput) == 46L)
-    //part2(testInput).println()
-    // check(part2(testInput) == 145L)
+    part2(testInput).println()
+    check(part2(testInput) == 51L)
 
     val input = readInput("Day16")
     part1(input).println()
-    //part2(input).println()
+    part2(input).println()
 }
 
 /*
---- Day 15: Lens Library ---
-The newly-focused parabolic reflector dish is sending all of the collected light to a point on the side of yet another mountain - the largest mountain on Lava Island. As you approach the mountain, you find that the light is being collected by the wall of a large facility embedded in the mountainside.
+--- Day 16: The Floor Will Be Lava ---
+With the beam of light completely focused somewhere, the reindeer leads you deeper still into the Lava Production Facility. At some point, you realize that the steel facility walls have been replaced with cave, and the doorways are just cave, and the floor is cave, and you're pretty sure this is actually just a giant cave.
 
-You find a door under a large sign that says "Lava Production Facility" and next to a smaller sign that says "Danger - Personal Protective Equipment required beyond this point".
+Finally, as you approach what must be the heart of the mountain, you see a bright light in a cavern up ahead. There, you discover that the beam of light you so carefully focused is emerging from the cavern wall closest to the facility and pouring all of its energy into a contraption on the opposite side.
 
-As you step inside, you are immediately greeted by a somewhat panicked reindeer wearing goggles and a loose-fitting hard hat. The reindeer leads you to a shelf of goggles and hard hats (you quickly find some that fit) and then further into the facility. At one point, you pass a button with a faint snout mark and the label "PUSH FOR HELP". No wonder you were loaded into that trebuchet so quickly!
+Upon closer inspection, the contraption appears to be a flat, two-dimensional square grid containing empty space (.), mirrors (/ and \), and splitters (| and -).
 
-You pass through a final set of doors surrounded with even more warning signs and into what must be the room that collects all of the light from outside. As you admire the large assortment of lenses available to further focus the light, the reindeer brings you a book titled "Initialization Manual".
+The contraption is aligned so that most of the beam bounces around the grid, but each tile on the grid converts some of the beam's light into heat to melt the rock in the cavern.
 
-"Hello!", the book cheerfully begins, apparently unaware of the concerned reindeer reading over your shoulder. "This procedure will let you bring the Lava Production Facility online - all without burning or melting anything unintended!"
+You note the layout of the contraption (your puzzle input). For example:
 
-"Before you begin, please be prepared to use the Holiday ASCII String Helper algorithm (appendix 1A)." You turn to appendix 1A. The reindeer leans closer with interest.
+.|...\....
+|.-.\.....
+.....|-...
+........|.
+..........
+.........\
+..../.\\..
+.-.-/..|..
+.|....-|.\
+..//.|....
+The beam enters in the top-left corner from the left and heading to the right. Then, its behavior depends on what it encounters as it moves:
 
-The HASH algorithm is a way to turn any string of characters into a single number in the range 0 to 255. To run the HASH algorithm on a string, start with a current value of 0. Then, for each character in the string starting from the beginning:
+If the beam encounters empty space (.), it continues in the same direction.
+If the beam encounters a mirror (/ or \), the beam is reflected 90 degrees depending on the angle of the mirror. For instance, a rightward-moving beam that encounters a / mirror would continue upward in the mirror's column, while a rightward-moving beam that encounters a \ mirror would continue downward from the mirror's column.
+If the beam encounters the pointy end of a splitter (| or -), the beam passes through the splitter as if the splitter were empty space. For instance, a rightward-moving beam that encounters a - splitter would continue in the same direction.
+If the beam encounters the flat side of a splitter (| or -), the beam is split into two beams going in each of the two directions the splitter's pointy ends are pointing. For instance, a rightward-moving beam that encounters a | splitter would split into two beams: one that continues upward from the splitter's column and one that continues downward from the splitter's column.
+Beams do not interact with other beams; a tile can have many beams passing through it at the same time. A tile is energized if that tile has at least one beam pass through it, reflect in it, or split in it.
 
-Determine the ASCII code for the current character of the string.
-Increase the current value by the ASCII code you just determined.
-Set the current value to itself multiplied by 17.
-Set the current value to the remainder of dividing itself by 256.
-After following these steps for each character in the string in order, the current value is the output of the HASH algorithm.
+In the above example, here is how the beam of light bounces around the contraption:
 
-So, to find the result of running the HASH algorithm on the string HASH:
+>|<<<\....
+|v-.\^....
+.v...|->>>
+.v...v^.|.
+.v...v^...
+.v...v^..\
+.v../2\\..
+<->-/vv|..
+.|<<<2-|.\
+.v//.|.v..
+Beams are only shown on empty tiles; arrows indicate the direction of the beams. If a tile contains beams moving in multiple directions, the number of distinct directions is shown instead. Here is the same diagram but instead only showing whether a tile is energized (#) or not (.):
 
-The current value starts at 0.
-The first character is H; its ASCII code is 72.
-The current value increases to 72.
-The current value is multiplied by 17 to become 1224.
-The current value becomes 200 (the remainder of 1224 divided by 256).
-The next character is A; its ASCII code is 65.
-The current value increases to 265.
-The current value is multiplied by 17 to become 4505.
-The current value becomes 153 (the remainder of 4505 divided by 256).
-The next character is S; its ASCII code is 83.
-The current value increases to 236.
-The current value is multiplied by 17 to become 4012.
-The current value becomes 172 (the remainder of 4012 divided by 256).
-The next character is H; its ASCII code is 72.
-The current value increases to 244.
-The current value is multiplied by 17 to become 4148.
-The current value becomes 52 (the remainder of 4148 divided by 256).
-So, the result of running the HASH algorithm on the string HASH is 52.
+######....
+.#...#....
+.#...#####
+.#...##...
+.#...##...
+.#...##...
+.#..####..
+########..
+.#######..
+.#...#.#..
+Ultimately, in this example, 46 tiles become energized.
 
-The initialization sequence (your puzzle input) is a comma-separated list of steps to start the Lava Production Facility. Ignore newline characters when parsing the initialization sequence. To verify that your HASH algorithm is working, the book offers the sum of the result of running the HASH algorithm on each step in the initialization sequence.
+The light isn't energizing enough tiles to produce lava; to debug the contraption, you need to start by analyzing the current situation. With the beam starting in the top-left heading right, how many tiles end up being energized?
 
-For example:
+Your puzzle answer was 8116.
 
-rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7
-This initialization sequence specifies 11 individual steps; the result of running the HASH algorithm on each of the steps is as follows:
+The first half of this puzzle is complete! It provides one gold star: *
 
-rn=1 becomes 30.
-cm- becomes 253.
-qp=3 becomes 97.
-cm=2 becomes 47.
-qp- becomes 14.
-pc=4 becomes 180.
-ot=9 becomes 9.
-ab=5 becomes 197.
-pc- becomes 48.
-pc=6 becomes 214.
-ot=7 becomes 231.
-In this example, the sum of these results is 1320. Unfortunately, the reindeer has stolen the page containing the expected verification number and is currently running around the facility with it excitedly.
+--- Part Two ---
+As you try to work out what might be wrong, the reindeer tugs on your shirt and leads you to a nearby control panel. There, a collection of buttons lets you align the contraption so that the beam enters from any edge tile and heading away from that edge. (You can choose either of two directions for the beam if it starts on a corner; for instance, if the beam starts in the bottom-right corner, it can start heading either left or upward.)
 
-Run the HASH algorithm on each step in the initialization sequence. What is the sum of the results? (The initialization sequence is one long line; be careful when copy-pasting it.)
+So, the beam could start on any tile in the top row (heading downward), any tile in the bottom row (heading upward), any tile in the leftmost column (heading right), or any tile in the rightmost column (heading left). To produce lava, you need to find the configuration that energizes as many tiles as possible.
 
+In the above example, this can be achieved by starting the beam in the fourth tile from the left in the top row:
 
+.|<2<\....
+|v-v\^....
+.v.v.|->>>
+.v.v.v^.|.
+.v.v.v^...
+.v.v.v^..\
+.v.v/2\\..
+<-2-/vv|..
+.|<<<2-|.\
+.v//.|.v..
+Using this configuration, 51 tiles are energized:
 
+.#####....
+.#.#.#....
+.#.#.#####
+.#.#.##...
+.#.#.##...
+.#.#.##...
+.#.#####..
+########..
+.#######..
+.#...#.#..
+Find the initial beam configuration that energizes the largest number of tiles; how many tiles are energized in that configuration?
 * */
